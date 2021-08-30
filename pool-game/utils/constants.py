@@ -4,9 +4,7 @@ import numpy as np
 FPS = 100
 ZOOM_MULTIPLIER = 1.2
 BALL_DAMPING_THRESHOLD = 9
-
 WIDTH, HEIGHT = 1120, 620
-
 
 #======== BALLS ========#
 BALL_MASS = 10
