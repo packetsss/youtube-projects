@@ -145,7 +145,7 @@ class Pool:
                 self.space.step(self.dt)
 
             if len(self.balls) < 2:
-                print(self.steps_to_run_table)
+                print(f"Total steps: {self.steps_to_run_table}")
                 self.steps_to_run_table = 0
                 return
 
