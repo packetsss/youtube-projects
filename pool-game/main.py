@@ -2,7 +2,7 @@ from utils import *
 
 import os
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
-os.environ["SDL_VIDEO_WINDOW_POS"] = "300, 200"
+os.environ["SDL_VIDEO_WINDOW_POS"] = "50, 200"
 
 import time
 import random
@@ -16,10 +16,10 @@ class Pool:
         self.space = pm.Space()
         self.space.gravity = (0, 0)
         self.space.damping = 0.8
+        self.space.idle_speed_threshold = 9.9
 
         # speed of the env
-        self.dt = 1 / 10
-        self.physics_steps_per_frame = 300
+        self.dt = 5
 
         # initialize pygame
         pg.init()
@@ -72,7 +72,8 @@ class Pool:
             
             # initialize ball at random position
             ball_body.position = random.randint(RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2), random.randint(RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2)
-            # if overlap with another ball, choose another location
+
+            # if overlap with another ball, choose a different location
             while 1:
                 for pos in positions:
                     if distance_between_two_points(ball_body.position, pos) < BALL_RADIUS * 2:
@@ -109,7 +110,7 @@ class Pool:
     
     @staticmethod
     def ball_pocketed(arbiter, space, data):
-        # [ball, pocket]
+        # arbiter: [ball, pocket]
         if arbiter.shapes[0].number != 0:
             data["balls"].remove(arbiter.shapes[0])
             space.remove(arbiter.shapes[0], arbiter.shapes[0].body)
@@ -125,24 +126,26 @@ class Pool:
 
         pg.display.flip()
         self.clock.tick(FPS)
-        pg.display.set_caption("FPS: " + str(self.clock.get_fps()))
+        pg.display.set_caption(f"FPS: {self.clock.get_fps():.0f}")
 
     def run(self):
         while self.running:
-            for _ in range(self.physics_steps_per_frame):
+            # waiting for all balls stopped
+            while 1:
                 balls_stopped = True
                 for ball in self.balls:
                     if np.abs(ball.body.velocity).sum() < BALL_DAMPING_THRESHOLD:
                         pm.Body.update_velocity(ball.body, (0, 0), damping=0, dt=1)
                     else:
-                        #print(ball.body.position, ball.body.velocity)
                         balls_stopped = False
                 if balls_stopped:
                     velocity_range = 550
                     velocity = (random.randint(-velocity_range, velocity_range), random.randint(-velocity_range, velocity_range))
                     pm.Body.update_velocity(self.cue_ball.body, velocity, damping=0, dt=1)
+
                     break
-                self.space.step(self.dt)
+                for _ in range(self.dt):
+                    self.space.step(0.1 / self.dt)
 
             if len(self.balls) < 2:
                 print(f"Total steps: {self.steps_to_run_table}")
