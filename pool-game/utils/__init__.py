@@ -1,2 +1,2 @@
 from .physics import *
-from .constants import *
+from .config import *

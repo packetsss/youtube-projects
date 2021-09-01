@@ -1,10 +1,18 @@
 import numpy as np
 
 #======== UNIVERSAL ========#
-FPS = 100
+FPS = 500
+VELOCITY_LIMIT = 500
 ZOOM_MULTIPLIER = 1.2
 BALL_DAMPING_THRESHOLD = 9
 WIDTH, HEIGHT = 1120, 620
+
+TRAINING = True
+DRAW_SCREEN = True # 140 fps --> 100 fps 
+PLAYING_SKIPPED_FRAME = 1
+
+IMAGE_WIDTH = 200
+
 
 #======== BALLS ========#
 BALL_MASS = 10
