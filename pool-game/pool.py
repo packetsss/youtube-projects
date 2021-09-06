@@ -36,7 +36,7 @@ class PoolEnv:
         self.reward_range = np.array([0, 200])
 
         # speed of the env
-        self.dt = 10
+        self.dt = 7
         self.step_size = 0.3
         if not TRAINING:
             self.step_size = 0.3
@@ -175,17 +175,17 @@ class PoolEnv:
         
         return True
 
-    def process_events(self):
-        for event in pg.event.get():
-            if event.type == pg.QUIT or event.type == pg.KEYDOWN and event.key == pg.K_q:
-                self.running = False
-
     def redraw_screen(self):
         self.screen.fill(pg.Color(TABLE_COLOR))
         self.space.debug_draw(self.draw_options)
 
         pg.display.flip()
         self.clock.tick(FPS)
+
+    def process_events(self):
+        for event in pg.event.get():
+            if event.type == pg.QUIT or event.type == pg.KEYDOWN and event.key == pg.K_q:
+                self.running = False
     
     def process_action(self, action):
         return (np.array(action) * VELOCITY_LIMIT).tolist()
@@ -219,6 +219,7 @@ class PoolEnv:
                 break
 
             if not self.training:
+                self.process_events()
                 if self.draw_screen:
                     self.redraw_screen()
                 self.space.step(self.step_size / self.dt)
@@ -273,7 +274,8 @@ class PoolEnv:
         if self.episode_steps > 100:
             done = True
             self.reward = 0
-                
+        
+        # prepare observation
         self.process_events()
         if self.draw_screen:
             self.redraw_screen()

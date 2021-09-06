@@ -112,9 +112,9 @@ def plot_curves(
     min_x = 0
     for (_, (x, y)) in enumerate(xy_list):
         if use_line:
-            plt.plot(x[::5], y[::5], color="#8fc5e3")
+            plt.plot(x, y, color="#8fc5e3", linewidth=10)
         else:
-            plt.scatter(x, y, s=5, color="#8fc5e3")
+            plt.scatter(x, y, s=3, color="#8fc5e3")
 
         # Do not plot the smoothed curve at all if the timeseries is shorter than window size.
         if x.shape[0] >= EPISODES_WINDOW:
