@@ -5,12 +5,12 @@ os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 os.environ["SDL_VIDEO_WINDOW_POS"] = "50, 200"
 
 import cv2
-from gym import spaces
 import time
 import random
 import numpy as np
 import pymunk as pm
 import pygame as pg
+from gym import spaces
 import pymunk.pygame_util as pygame_util
 
 class PoolEnv:
@@ -152,22 +152,18 @@ class PoolEnv:
             if data["pocket_tracking"]["cue_ball_first_contact"] is None:
                 data["pocket_tracking"]["cue_ball_first_contact"] = 2
             data["pocket_tracking"]["cue_ball_pocketed"] = True
-            pm.Body.update_velocity(ball.body, (0, 0), damping=0, dt=1)
-            ball.body.position = random.randint(RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2), random.randint(RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2)
-            return True
-        else:
-            if ball.number == 8:
-                # check for solids winning
-                data["pocket_tracking"]["black_ball_pocketed"] = True
-                if any([b.number >= 1 and b.number <= 7 for b in data["balls"]]):
-                    data["pocket_tracking"]["is_won"] = False
-                else:
-                    data["pocket_tracking"]["is_won"] = True
-            elif 1 <= ball.number <= 7:
-                data["pocket_tracking"]["total_potted_balls"] += 1
+        elif ball.number == 8:
+            # check for solids winning
+            data["pocket_tracking"]["black_ball_pocketed"] = True
+            if any([b.number >= 1 and b.number <= 7 for b in data["balls"]]):
+                data["pocket_tracking"]["is_won"] = False
+            else:
+                data["pocket_tracking"]["is_won"] = True
+        elif 1 <= ball.number <= 7:
+            data["pocket_tracking"]["total_potted_balls"] += 1
 
-            data["balls"].remove(ball)
-            space.remove(ball, ball.body)
+        data["balls"].remove(ball)
+        space.remove(ball, ball.body)
         return False
 
     @staticmethod
@@ -205,6 +201,8 @@ class PoolEnv:
     def step(self, action, *args, **kwargs):
         # waiting for all balls to stop
         action = self.process_action(action)
+        self.cue_ball.body.activate()
+        pm.Body.update_velocity(self.cue_ball.body, action, damping=0, dt=1)
 
         done = False
         info = {}
@@ -218,12 +216,9 @@ class PoolEnv:
                 if not ball.body.is_sleeping:
                     break
             else:
-                self.cue_ball.body.activate()
-                pm.Body.update_velocity(self.cue_ball.body, action, damping=0, dt=1)
                 break
 
             if not self.training:
-                self.process_events()
                 if self.draw_screen:
                     self.redraw_screen()
                 self.space.step(self.step_size / self.dt)
@@ -269,7 +264,7 @@ class PoolEnv:
                 self.reward = 200
                 self.episode_reward.append(self.reward)
 
-            pg.display.set_caption(f"FPS: {self.clock.get_fps():.0f}   REWARD: {np.mean(self.episode_reward):.0f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}")
+            pg.display.set_caption(f"FPS: {self.clock.get_fps():.0f}   TOT_REWARD: {np.sum(self.episode_reward):.0f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}")
         
         if not self.training:
             pg.display.set_caption(f"FPS: {self.clock.get_fps():.0f}   REWARD: {self.reward:.0f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}")
@@ -285,6 +280,15 @@ class PoolEnv:
         self.process_observation()
         self.episode_steps += 1
         self.total_steps += 1
+
+        # adding cue ball back to table
+        if self.pocket_tracking["cue_ball_pocketed"]:
+            self.space.add(self.cue_ball.body, self.cue_ball)
+            self.balls.append(self.cue_ball)
+
+            pm.Body.update_velocity(self.cue_ball.body, (0, 0), damping=0, dt=1)
+            self.cue_ball.body.position = random.randint(RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2), random.randint(RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2)
+            self.cue_ball.body.activate()
 
         return self.image, self.reward, done, info
 
@@ -340,6 +344,13 @@ class PoolEnv:
         while self.running:
             velocity = (random.uniform(0, 1), random.uniform(0, 1))
             observation, reward, done, info = self.step(velocity)
+            """ while 1:
+                for event in pg.event.get():
+                    if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+                        break
+                else:
+                    continue
+                break"""
             if done:
                 if self.pocket_tracking["is_won"] and not self.pocket_tracking["cue_ball_pocketed"]:
                     print("WIN!!")
