@@ -42,16 +42,14 @@ class PoolEnv:
             self.observation_space = spaces.Box(
                 low=0,
                 high=255,
-                shape=(3, int(IMAGE_WIDTH * (HEIGHT / WIDTH)), IMAGE_WIDTH),
+                shape=(3, IMAGE_HEIGHT, IMAGE_WIDTH),
                 dtype=np.uint8,
                 )
         else:
             # ball_x, ball_y, ball_type(pocketed, solid, strips, 8-ball, cue-ball) x 16 balls
             self.observation_space = spaces.Box(
                 low=np.repeat(np.array([0, 0, 0]), self.num_balls, axis=0).reshape(self.num_balls, 3).T,
-                high=np.repeat(np.array([IMAGE_WIDTH, int(IMAGE_WIDTH * (HEIGHT / WIDTH)), 4]), self.num_balls, axis=0)\
-                    .reshape(self.num_balls, 3).T,
-                dtype=np.uint8,
+                high=np.repeat(np.array([1, 1, 1]), self.num_balls, axis=0).reshape(self.num_balls, 3).T
                 )
         
         # speed of the env
@@ -218,13 +216,20 @@ class PoolEnv:
             img = cv2.rotate(img, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
             img = cv2.flip(img, 0)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (IMAGE_WIDTH, int(IMAGE_WIDTH * (HEIGHT / WIDTH))))
+            img = cv2.resize(img, (IMAGE_WIDTH, IMAGE_HEIGHT))
             #cv2.imshow("", img)
             #cv2.waitKey(1)
-            return img.reshape(3, int(IMAGE_WIDTH * (HEIGHT / WIDTH)), IMAGE_WIDTH)
+            return img.reshape(3, IMAGE_HEIGHT, IMAGE_WIDTH)
         else:
             # observation_number: pocketed 0, solid 1, strips 2, 8-ball 3, cue-ball 4
-            obs = np.array([np.array([*x.body.position, x.observation_number]) for x in self.balls], dtype=np.uint8)
+            width_multiplier = (IMAGE_WIDTH / (WIDTH * ZOOM_MULTIPLIER)) / IMAGE_WIDTH
+            height_multiplier = (IMAGE_HEIGHT / (HEIGHT * ZOOM_MULTIPLIER)) / IMAGE_HEIGHT
+            obs = np.array([
+                np.array([x.body.position[0] * width_multiplier, 
+                x.body.position[1] * height_multiplier, 
+                x.observation_number / 4]) 
+                for x in self.balls])
+
             balls_to_fill = self.num_balls - len(self.balls)
             if len(self.balls) == 0:
                 # if no balls on table

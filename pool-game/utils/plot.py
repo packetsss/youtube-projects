@@ -129,7 +129,7 @@ def plot_curves(
 
 
 def plot_results(
-    dirs: List[str], num_timesteps: Optional[int], x_axis: str, task_name: str, figsize: Tuple[int, int] = (8, 6)
+    dirs: List[str], num_timesteps: Optional[int], x_axis: str, task_name: str, use_line: bool, figsize: Tuple[int, int] = (8, 6)
 ) -> None:
     """
     Plot the results using csv files from ``Monitor`` wrapper.
@@ -148,7 +148,7 @@ def plot_results(
             data_frame = data_frame[data_frame.l.cumsum() <= num_timesteps]
         data_frames.append(data_frame)
     xy_list = [ts2xy(data_frame, x_axis) for data_frame in data_frames]
-    plot_curves(xy_list, x_axis, task_name, figsize)
+    plot_curves(xy_list, x_axis, title=task_name, use_line=use_line, figsize=figsize)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A3C')
