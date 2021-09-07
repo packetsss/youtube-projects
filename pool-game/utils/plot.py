@@ -1,3 +1,8 @@
+r""" 
+USAGE:
+python .\utils\plot.py --log-dir "path/to/log
+"""
+
 import argparse
 import numpy as np
 import pandas as pd
