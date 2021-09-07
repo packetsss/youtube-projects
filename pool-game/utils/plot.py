@@ -117,10 +117,10 @@ def plot_curves(
             plt.scatter(x, y, s=3, color="#8fc5e3")
 
         # Do not plot the smoothed curve at all if the timeseries is shorter than window size.
-        if x.shape[0] >= EPISODES_WINDOW:
-            # Compute and plot rolling mean with window of size EPISODE_WINDOW
-            x, y_mean = window_func(x, y, EPISODES_WINDOW, np.mean)
-            plt.plot(x, y_mean, color="#3882ab", linewidth=2.0)
+
+        # Compute and plot rolling mean with window of size EPISODE_WINDOW
+        x, y_mean = window_func(x, y, EPISODES_WINDOW, np.mean)
+        plt.plot(x, y_mean, color="#3882ab", linewidth=2.0)
     plt.xlim(min_x, max_x)
     plt.title(title)
     plt.xlabel(x_axis)
