@@ -1,8 +1,10 @@
 from utils import *
 
 import os
+import gym
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 os.environ["SDL_VIDEO_WINDOW_POS"] = "50, 200"
+gym.logger.set_level(40)
 
 import cv2
 import time
@@ -11,16 +13,18 @@ import numpy as np
 import pymunk as pm
 import pygame as pg
 from gym import spaces
+from gym.utils import seeding
 import pymunk.pygame_util as pygame_util
 
 class PoolEnv:
     metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 500}
-    def __init__(self, num_balls=16):
+    def __init__(self, num_balls=NUM_BALLS):
         # initialize some constants
         self.num_balls = num_balls
         self.episodes = 0
         self.total_steps = 0
         self.running = True
+        self.reward_by_steps = REWARD_BY_STEPS
         self.training = TRAINING
         self.draw_screen = DRAW_SCREEN
         self.use_image_observation = USE_IMAGE_OBSERVATION
@@ -48,15 +52,15 @@ class PoolEnv:
         else:
             # ball_x, ball_y, ball_type(pocketed, solid, strips, 8-ball, cue-ball) x 16 balls
             self.observation_space = spaces.Box(
-                low=np.repeat(np.array([0, 0, 0]), self.num_balls, axis=0).reshape(self.num_balls, 3).T,
-                high=np.repeat(np.array([1, 1, 1]), self.num_balls, axis=0).reshape(self.num_balls, 3).T
+                low=np.repeat(np.array([0, 0, 0]), self.num_balls, axis=0).reshape(self.num_balls, 3).T.flatten(),
+                high=np.repeat(np.array([1, 1, 1]), self.num_balls, axis=0).reshape(self.num_balls, 3).T.flatten()
                 )
         
         # speed of the env
         self.dt = 7
-        self.step_size = 0.3
+        self.step_size = 0.2
         if not TRAINING:
-            self.step_size = 0.1
+            self.step_size = 0.15
 
         # initialize pygame
         pg.init()
@@ -75,6 +79,14 @@ class PoolEnv:
         self.rail_collision_handler.begin = self.rail_contacted
         self.reset()
 
+    @property
+    def unwrapped(self):
+        return self
+
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
+
     def add_table(self):
         static_body = self.space.static_body
         self.rails = []
@@ -84,6 +96,7 @@ class PoolEnv:
             rail.collision_type = 3
             rail.elasticity = RAIL_ELASTICITY
             rail.friction = RAIL_FRICTION
+            rail.filter = pm.ShapeFilter(categories=0b1)
             self.rails.append(rail)
         
         self.pockets = []
@@ -93,6 +106,7 @@ class PoolEnv:
             pocket.collision_type = 2
             pocket.elasticity = 0
             pocket.friction = 0
+            pocket.filter = pm.ShapeFilter(categories=0b1)
             self.pockets.append(pocket)
                     
         self.space.add(*self.rails, *self.pockets)
@@ -134,6 +148,7 @@ class PoolEnv:
             if i == 0:
                 ball.color = pg.Color(WHITE)
                 ball.observation_number = 4
+                ball.filter = pm.ShapeFilter(categories=0b1)
                 self.cue_ball = ball
             elif i < 8:
                 ball.color = pg.Color(SOLIDS_COLOR)
@@ -141,9 +156,11 @@ class PoolEnv:
             elif i == 8:
                 ball.color = pg.Color(BLACK)
                 ball.observation_number = 3
+                ball.filter = pm.ShapeFilter(categories=0b1)
             else:
                 ball.color = pg.Color(STRIPS_COLOR)
                 ball.observation_number = 2
+                ball.filter = pm.ShapeFilter(categories=0b1)
             
             positions.append(ball_body.position)
             self.balls.append(ball)
@@ -233,15 +250,18 @@ class PoolEnv:
             balls_to_fill = self.num_balls - len(self.balls)
             if len(self.balls) == 0:
                 # if no balls on table
-                return np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0).reshape(balls_to_fill, 3)
+                return np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0).reshape(balls_to_fill, 3).flatten()
             if balls_to_fill > 0:
                 # if some balls are pocketed
-                return np.vstack((obs, np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0).reshape(balls_to_fill, 3)))
-            return obs
+                return np.vstack((obs, np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0).reshape(balls_to_fill, 3))).flatten()
+            return obs.flatten()
     
     def process_reward(self):
         # normalizing the reward to range(-1, 1)
-        return np.clip((self.reward / 200) * 2 - 1, -1, 1)
+        if self.reward_by_steps:
+            return np.clip((self.reward / 80) * 2 - 1, -1, 1)
+        else:
+            return np.clip((self.reward / 500) * 2 - 1, -1, 1)
         
 
     def step(self, action, *args, **kwargs):
@@ -253,8 +273,10 @@ class PoolEnv:
         # reset some constants
         done = False
         info = {}
-        self.reward = 5
+        if self.reward_by_steps:
+            self.reward = 7
         self.potted_balls.clear()
+        closest_dist = 1e6
         self.pocket_tracking["cue_ball_pocketed"] = False
         self.pocket_tracking["first_contacted_ball"] = None
         self.pocket_tracking["cue_ball_first_contact"] = None
@@ -265,7 +287,11 @@ class PoolEnv:
                     break
             else:
                 break
-            
+            if self.pocket_tracking["first_contacted_ball"] is None:
+                pt = self.space.point_query_nearest(tuple(self.cue_ball.body.position), 800, pm.ShapeFilter(mask=pm.ShapeFilter.ALL_MASKS() ^ 0b1))
+                if pt is not None:
+                    closest_dist = min(pt.distance, closest_dist)
+
             # step through
             if not self.training:
                 self.process_events()
@@ -275,8 +301,8 @@ class PoolEnv:
             else:
                 for _ in range(self.dt):
                     self.space.step(self.step_size / self.dt)
-
-        # foul check
+        
+        # rewarding
         fcb = self.pocket_tracking["first_contacted_ball"]
         if fcb is not None and 1 <= fcb <= 7:
             pck_arr = np.array(self.potted_balls)
@@ -285,43 +311,55 @@ class PoolEnv:
                 self.score_tracking["foul_count"] = 0
                 self.score_tracking["touch_count"] += 1
                 self.score_tracking["pot_count"] += 1
-                self.reward += 40
+                if self.reward_by_steps:
+                    self.reward += 30
+                else:
+                    self.reward += 40
             else:
                 # touched the correct ball
                 self.score_tracking["foul_count"] = 0
                 self.score_tracking["touch_count"] += 1
-                self.reward += 3
+                self.reward += 5
         else:
             # touched the wrong ball or not touching anything at all
             self.score_tracking["foul_count"] += 1
             self.score_tracking["total_foul"] += 1
             self.score_tracking["touch_count"] = 0
-            self.reward -= 3
+            self.reward -= 5
+            # although fouled, still reward by how close it gets to the ball
+            self.reward += 70 / closest_dist
         
         # if cue ball touch the rail first, subtract the reward
         if self.pocket_tracking["cue_ball_first_contact"] == 3:
             self.reward -= 2
 
-        self.episode_reward.append(self.reward)
+        # total episode reward
+        if not self.reward_by_steps:
+            self.episode_reward.append(self.reward)
 
-        # check endgame condition
-        if len(self.balls) < 2 and self.cue_ball in self.balls:
-            # only cue ball left
+        # only cue ball left
+        if self.num_balls < 9 and len(self.balls) < 2 and self.cue_ball in self.balls:
             self.pocket_tracking["black_ball_pocketed"] = True
             self.pocket_tracking["is_won"] = True
+        
+        # check endgame condition
         if self.pocket_tracking["black_ball_pocketed"] or self.score_tracking["total_foul"] > self.total_foul_times:
             self.episodes += 1
             done = True
             if self.pocket_tracking["is_won"] and not self.pocket_tracking["cue_ball_pocketed"]:
-                #self.reward = 500
-                self.reward = 200
-                self.episode_reward.append(self.reward)
+                if self.reward_by_steps:
+                    self.reward = 80
+                else:
+                    self.reward = 500
+                    self.episode_reward.append(self.reward)
+                
+            if self.reward_by_steps:
+                pg.display.set_caption(f"FPS: {self.clock.get_fps():.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}")
+            else:
+                pg.display.set_caption(f"FPS: {self.clock.get_fps():.0f}   TOT_REWARD: {np.sum(self.episode_reward):.0f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}")
 
-            pg.display.set_caption(f"FPS: {self.clock.get_fps():.0f}   TOT_REWARD: {np.sum(self.episode_reward):.0f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}")
-            #pg.display.set_caption(f"FPS: {self.clock.get_fps():.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}")
-        
         if not self.training:
-            pg.display.set_caption(f"FPS: {self.clock.get_fps():.0f}   REWARD: {self.reward:.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}")
+            pg.display.set_caption(f"FPS: {self.clock.get_fps():.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int).tolist()}")
 
         # end the game if too many steps
         if self.episode_steps > 100:
@@ -332,7 +370,6 @@ class PoolEnv:
         self.process_events()
         if self.draw_screen:
             self.redraw_screen()
-        observation = self.process_observation()
         
         self.episode_steps += 1
         self.total_steps += 1
@@ -346,7 +383,7 @@ class PoolEnv:
             self.cue_ball.body.position = random.randint(RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2), random.randint(RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2)
             self.cue_ball.body.activate()
 
-        return observation, self.process_reward(), done, info
+        return self.process_observation(), self.process_reward(), done, info
 
 
     def reset(self, *args, **kwargs):
@@ -360,7 +397,7 @@ class PoolEnv:
         self.add_table()
         self.add_balls()
 
-        self.reward = 5 # self.total_foul_times * 5
+        self.reward = self.total_foul_times * 5
         self.episode_reward = []
         self.potted_balls = []
         self.episode_steps = 0
@@ -392,12 +429,15 @@ class PoolEnv:
         self.process_events()
         if self.draw_screen:
             self.redraw_screen()
-        
         return self.process_observation()
 
-    def run(self):
+    def run(self, model=None):
+        observation = self.reset()
         while self.running:
-            velocity = (random.uniform(0, 1), random.uniform(0, 1))
+            if model is not None:
+                velocity = model.predict(observation)[0].tolist()
+            else:
+                velocity = (random.uniform(0, 1), random.uniform(0, 1))
             observation, reward, done, info = self.step(velocity)
             # whether use space to move through each step
             """ while 1:
@@ -408,17 +448,17 @@ class PoolEnv:
                     continue
                 break"""
             if done:
-                #time.sleep(0.5)
                 if self.pocket_tracking["is_won"] and not self.pocket_tracking["cue_ball_pocketed"]:
-                    print("WIN!!")
+                    print("WIN !!")
                 else:
                     print("LOSE!!")
-
                 self.reset()
 
+    def close(self):
+        pg.quit()
 
 def main():
-    pool = PoolEnv(num_balls=3)
+    pool = PoolEnv()
     pool.run()
 
 if __name__ == '__main__':

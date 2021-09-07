@@ -1,11 +1,7 @@
-
-
 import argparse
 import numpy as np
 import pandas as pd
 
-import matplotlib
-matplotlib.use('TkAgg')  # Can change to 'Agg' for non-interactive mode
 from matplotlib import pyplot as plt
 from typing import Callable, List, Optional, Tuple
 from stable_baselines3.common.monitor import load_results
@@ -149,6 +145,7 @@ def plot_results(
         data_frames.append(data_frame)
     xy_list = [ts2xy(data_frame, x_axis) for data_frame in data_frames]
     plot_curves(xy_list, x_axis, title=task_name, use_line=use_line, figsize=figsize)
+    plt.show()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='A3C')
@@ -172,4 +169,4 @@ if __name__ == '__main__':
         simple_plot_results(args.log_dir)
     else:
         plot_results([args.log_dir], np.inf, X_TIMESTEPS, "Model Performance", args.use_line)
-        plt.show()
+        

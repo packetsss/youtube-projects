@@ -2,15 +2,18 @@ import numpy as np
 
 #======== UNIVERSAL ========#
 FPS = 500
-ZOOM_MULTIPLIER = 0.8
-TOTAL_FOUL_TIMES = 25
+ZOOM_MULTIPLIER = 0.8 # change screen size, can boost fps
+TOTAL_FOUL_TIMES = 25 # amount of fouls before end the game
 WIDTH, HEIGHT = 1120, 620
 
-TRAINING = True
-DRAW_SCREEN = True # 140 fps --> 100 fps
-USE_IMAGE_OBSERVATION = False
-VELOCITY_LIMIT = int(420 * ZOOM_MULTIPLIER)
+NUM_BALLS = 3 # number of balls generated on table (16 is a normal game)
+TRAINING = True # training or playing (fast dt)
+DRAW_SCREEN = True
+REWARD_BY_STEPS = True # whether calculate reward based on steps or episodes
+USE_IMAGE_OBSERVATION = False # whether use image obs space or vector obs space
+VELOCITY_LIMIT = int(420 * ZOOM_MULTIPLIER) # max velocity of cue ball
 
+# dimension of image observation if used
 IMAGE_WIDTH = 120
 IMAGE_HEIGHT = int(IMAGE_WIDTH * (HEIGHT / WIDTH))
 
