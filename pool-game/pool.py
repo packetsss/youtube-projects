@@ -358,7 +358,7 @@ class PoolEnv:
                 self.score_tracking["touch_count"] += 1
                 self.reward += 5
                 if closest_pocket_dist < 600:
-                    self.reward += 55 / np.sqrt(max(closest_pocket_dist, 0))
+                    self.reward += 55 / np.sqrt(max(closest_pocket_dist, 1e-6))
         else:
             # touched the wrong ball or not touching anything at all
             # although fouled, still reward by how close it gets to the ball
@@ -367,7 +367,7 @@ class PoolEnv:
             self.score_tracking["touch_count"] = 0
             self.reward -= 5
             if closest_ball_dist < 600:
-                self.reward += 25 / np.sqrt(max(closest_ball_dist, 0))
+                self.reward += 25 / np.sqrt(max(closest_ball_dist, 1e-6))
         
         # if cue ball touch the rail first, subtract the reward
         if self.pocket_tracking["cue_ball_first_contact"] == 3:
