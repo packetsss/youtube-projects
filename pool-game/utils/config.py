@@ -7,8 +7,8 @@ TOTAL_FOUL_TIMES = 25 # amount of fouls before end the game
 WIDTH, HEIGHT = 1120, 620
 
 NUM_BALLS = 5 # number of balls generated on table (16 is a normal game)
-TRAINING = False # training or playing (fast dt)
-DRAW_SCREEN = True
+TRAINING = True # training or playing (fast dt)
+DRAW_SCREEN = False # draw screen (will not affect if using image observation)
 REWARD_BY_STEPS = True # whether calculate reward based on steps or episodes
 USE_IMAGE_OBSERVATION = False # whether use image obs space or vector obs space
 VELOCITY_LIMIT = int(420 * ZOOM_MULTIPLIER) # max velocity of cue ball
