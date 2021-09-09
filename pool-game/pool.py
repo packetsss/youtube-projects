@@ -49,6 +49,7 @@ class PoolEnv:
 
         # gym environment
         self.spec = None
+        self.num_envs = 1
         self.reward_range = np.array([-1, 1])
         self.action_space = spaces.Box(low=-1, high=1, shape=(2,))
         if self.use_image_observation:
@@ -60,9 +61,14 @@ class PoolEnv:
                 )
         else:
             # ball_x, ball_y, ball_type(pocketed, solid, strips, 8-ball, cue-ball) x 16 balls
+            self.table_info = np.concatenate([np.array(RAIL_POLY).flatten(), POCKET_LOCATION.flatten()])
+            self.table_info = self.table_info / self.table_info.max()
+            low = np.concatenate([np.array([0, 0, 0] * self.num_balls), [0] * len(self.table_info)])
+            high = np.concatenate([np.array([1, 1, 1] * self.num_balls), [1] * len(self.table_info)])
             self.observation_space = spaces.Box(
-                low=np.repeat(np.array([0, 0, 0]), self.num_balls, axis=0).reshape(self.num_balls, 3).T.flatten(),
-                high=np.repeat(np.array([1, 1, 1]), self.num_balls, axis=0).reshape(self.num_balls, 3).T.flatten()
+                low=low,
+                high=high,
+                dtype=np.float32,
                 )
         
         # speed of the env
@@ -137,7 +143,7 @@ class PoolEnv:
             ball_body = pm.Body(BALL_MASS, intertia)
             
             # initialize ball at random position
-            if self.num_balls < 9:
+            if self.num_balls < 2:
                 ball_body.position = random.choice(HANGING_BALL_LOCATION).tolist()
             else:
                 ball_body.position = random.randint(RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2), random.randint(RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2)
@@ -149,7 +155,7 @@ class PoolEnv:
                         break
                 else:
                     break
-                if self.num_balls < 9:
+                if self.num_balls < 2:
                     ball_body.position = random.choice(HANGING_BALL_LOCATION).tolist()
                 else:
                     ball_body.position = random.randint(RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2), random.randint(RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2)
@@ -246,10 +252,10 @@ class PoolEnv:
     def process_observation(self):
         if self.use_image_observation:
             img = pg.surfarray.array3d(self.screen)
+            img = cv2.resize(img, (IMAGE_WIDTH, IMAGE_HEIGHT))
             img = cv2.rotate(img, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
             img = cv2.flip(img, 0)
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (IMAGE_WIDTH, IMAGE_HEIGHT))
             #cv2.imshow("", img)
             #cv2.waitKey(1)
             return img.reshape(3, IMAGE_HEIGHT, IMAGE_WIDTH)
@@ -266,11 +272,14 @@ class PoolEnv:
             balls_to_fill = self.num_balls - len(self.balls)
             if len(self.balls) == 0:
                 # if no balls on table
-                return np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0).reshape(balls_to_fill, 3).flatten()
+                obs = np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0).reshape(balls_to_fill, 3).flatten()
             if balls_to_fill > 0:
                 # if some balls are pocketed
-                return np.vstack((obs, np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0).reshape(balls_to_fill, 3))).flatten()
-            return obs.flatten()
+                obs = np.vstack((obs, np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0).reshape(balls_to_fill, 3))).flatten()
+            else:
+                obs = obs.flatten()
+            obs = np.concatenate([obs, self.table_info])
+            return obs
     
     def process_reward(self, reward=None):
         # normalizing the reward to range(-1, 1)
@@ -347,14 +356,18 @@ class PoolEnv:
                 # although didn't pot ball, still reward by how close ball gets to the pocket
                 self.score_tracking["foul_count"] = 0
                 self.score_tracking["touch_count"] += 1
-                self.reward += 5 + 55 / np.sqrt(closest_pocket_dist)
+                self.reward += 5
+                if closest_pocket_dist < 600:
+                    self.reward += 55 / np.sqrt(max(closest_pocket_dist, 0))
         else:
             # touched the wrong ball or not touching anything at all
             # although fouled, still reward by how close it gets to the ball
             self.score_tracking["foul_count"] += 1
             self.score_tracking["total_foul"] += 1
             self.score_tracking["touch_count"] = 0
-            self.reward += -5 + 25 / np.sqrt(closest_ball_dist)
+            self.reward -= 5
+            if closest_ball_dist < 600:
+                self.reward += 25 / np.sqrt(max(closest_ball_dist, 0))
         
         # if cue ball touch the rail first, subtract the reward
         if self.pocket_tracking["cue_ball_first_contact"] == 3:
@@ -370,7 +383,7 @@ class PoolEnv:
             self.pocket_tracking["is_won"] = True
         
         # check endgame condition
-        if self.pocket_tracking["black_ball_pocketed"] or self.score_tracking["total_foul"] > self.total_foul_times:
+        if self.pocket_tracking["black_ball_pocketed"] or self.score_tracking["total_foul"] > (self.total_foul_times / (self.score_tracking["pot_count"] * 0.2 + 1)):
             self.episodes += 1
             done = True
             if self.pocket_tracking["is_won"] and not self.pocket_tracking["cue_ball_pocketed"]:
@@ -379,6 +392,8 @@ class PoolEnv:
                     self.episode_reward.append(self.process_reward())
                 else:
                     self.reward = 500
+            else:
+                self.reward = 0
                 
             if not self.reward_by_steps:
                 pg.display.set_caption(f"FPS: {self.clock.get_fps():.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}")
@@ -483,6 +498,7 @@ class PoolEnv:
 
     def close(self):
         pg.quit()
+
 
 def main():
     pool = PoolEnv()

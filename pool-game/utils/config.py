@@ -6,7 +6,7 @@ ZOOM_MULTIPLIER = 0.8 # change screen size, can boost fps
 TOTAL_FOUL_TIMES = 25 # amount of fouls before end the game
 WIDTH, HEIGHT = 1120, 620
 
-NUM_BALLS = 3 # number of balls generated on table (16 is a normal game)
+NUM_BALLS = 5 # number of balls generated on table (16 is a normal game)
 TRAINING = True # training or playing (fast dt)
 DRAW_SCREEN = True
 REWARD_BY_STEPS = True # whether calculate reward based on steps or episodes
@@ -44,7 +44,7 @@ POCKET_LOCATION = (np.array([
     (WIDTH - CORNER_POCKET_DIST, HEIGHT - CORNER_POCKET_DIST)])
     * ZOOM_MULTIPLIER).astype(int)
 
-HANGING_BALL_OFFSET = int(50 * ZOOM_MULTIPLIER)
+HANGING_BALL_OFFSET = int(45 * ZOOM_MULTIPLIER)
 HANGING_BALL_LOCATION = (np.array([
     (CORNER_POCKET_DIST + HANGING_BALL_OFFSET, CORNER_POCKET_DIST + HANGING_BALL_OFFSET), 
     (WIDTH // 2, SIDE_POCKET_DIST + HANGING_BALL_OFFSET), 

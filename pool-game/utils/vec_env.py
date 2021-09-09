@@ -3,7 +3,7 @@ from utils.config import *
 
 import os
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 def make_vec_env(
     n_envs=1,
@@ -41,4 +41,4 @@ def make_vec_env(
     if vec_env_cls is None:
         vec_env_cls = DummyVecEnv
 
-    return vec_env_cls([make_env(i + start_index) for i in range(n_envs)], **vec_env_kwargs)
+    return VecNormalize(vec_env_cls([make_env(i + start_index) for i in range(n_envs)], **vec_env_kwargs), clip_obs=1, clip_reward=1)

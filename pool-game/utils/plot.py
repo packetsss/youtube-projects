@@ -3,10 +3,11 @@ USAGE:
 python .\utils\plot.py --log-dir "path/to/log
 """
 
+import os
+import time
 import argparse
 import numpy as np
 import pandas as pd
-
 from matplotlib import pyplot as plt
 from typing import Callable, List, Optional, Tuple
 from stable_baselines3.common.monitor import load_results
@@ -130,7 +131,7 @@ def plot_curves(
 
 
 def plot_results(
-    dirs: List[str], num_timesteps: Optional[int], x_axis: str, task_name: str, use_line: bool, figsize: Tuple[int, int] = (8, 6)
+    dirs: List[str], num_timesteps: Optional[int], x_axis: str, task_name: str, use_line: bool, recursive: bool, figsize: Tuple[int, int] = (8, 6)
 ) -> None:
     """
     Plot the results using csv files from ``Monitor`` wrapper.
@@ -150,28 +151,45 @@ def plot_results(
         data_frames.append(data_frame)
     xy_list = [ts2xy(data_frame, x_axis) for data_frame in data_frames]
     plot_curves(xy_list, x_axis, title=task_name, use_line=use_line, figsize=figsize)
-    plt.show()
+    if recursive:
+        try:
+            plt.pause(10)
+        except KeyboardInterrupt:
+            plt.close()
+            os._exit(0)
+    else:
+        plt.show()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='A3C')
+    parser = argparse.ArgumentParser()
     parser.add_argument(
         '--log-dir',
         type=str,
         default="logs/td3")
     parser.add_argument(
+        '-s',
         '--simple',
-        type=bool,
-        default=False)
+        help="increase output verbosity",
+        action="store_true")
     parser.add_argument(
+        '-l',
         '--use-line',
-        type=bool,
-        default=False)
-    
-
+        action="store_true")
+    parser.add_argument(
+        '-r',
+        '--recursive',
+        action="store_true"
+    )
     args = parser.parse_args()
-
-    if args.simple:
-        simple_plot_results(args.log_dir)
+    if args.recursive:
+        while 1:
+            if args.simple:
+                simple_plot_results(args.log_dir)
+            else:
+                plot_results([args.log_dir], np.inf, X_TIMESTEPS, "Model Performance", args.use_line, args.recursive)
     else:
-        plot_results([args.log_dir], np.inf, X_TIMESTEPS, "Model Performance", args.use_line)
+        if args.simple:
+            simple_plot_results(args.log_dir)
+        else:
+            plot_results([args.log_dir], np.inf, X_TIMESTEPS, "Model Performance", args.use_line)
         
