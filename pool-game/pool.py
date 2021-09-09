@@ -49,6 +49,10 @@ class PoolEnv:
         self.space.idle_speed_threshold = 5
         self.space.sleep_time_threshold = 1e-8
 
+        if not self.training:
+            self.space.damping = 0.9
+            self.space.idle_speed_threshold = 3.5
+
         # gym environment
         self.spec = None
         self.num_envs = 1
@@ -416,7 +420,7 @@ class PoolEnv:
 
         if not self.training:
             pg.display.set_caption(
-                f"FPS: {self.fps:.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int).tolist()}")
+                f"FPS: {self.clock.get_fps():.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int).tolist()}")
 
         # end the game if too many steps
         if self.episode_steps > 100:
@@ -515,7 +519,7 @@ class PoolEnv:
 
 
 def main():
-    pool = PoolEnv(training=True, use_image_observation=True)
+    pool = PoolEnv(training=False, draw_screen=True, use_image_observation=False)
     pool.run()
 
 
