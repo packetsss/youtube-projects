@@ -7,5 +7,5 @@
 
 ## Advantages of using this environment
 - Fast: About 250 fps using vector observation, 120 fps using image observation
-- Accurate: Every collision is handeled correctly and the table is true-to-size
+- Accurate: Every collision is handeled correctly and the table size is very precise
 - Customizable: You can tweak with configs to get your favourite table, pretty easy and I've commented basically on everything
