@@ -251,11 +251,11 @@ class PoolEnv:
 
     def process_observation(self):
         if self.use_image_observation:
-            img = pg.surfarray.array3d(self.screen)
+            img = pg.surfarray.pixels3d(self.screen)
             img = cv2.resize(img, (IMAGE_WIDTH, IMAGE_HEIGHT))
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = cv2.rotate(img, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
             img = cv2.flip(img, 0)
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             #cv2.imshow("", img)
             #cv2.waitKey(1)
             return img.reshape(3, IMAGE_HEIGHT, IMAGE_WIDTH)
@@ -501,7 +501,7 @@ class PoolEnv:
 
 
 def main():
-    pool = PoolEnv()
+    pool = PoolEnv(training=True, use_image_observation=True)
     pool.run()
 
 if __name__ == '__main__':
