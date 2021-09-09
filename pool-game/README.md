@@ -6,6 +6,6 @@
 (FPS in the gif is splited by 10 instances, so it should be around 110)
 
 ## Advantages of using this environment
-- Fast: About 150 fps with random actions
+- Fast: About 250 fps using vector observation, 120 fps using image observation
 - Accurate: Every collision is handeled correctly and the table is true-to-size
 - Customizable: You can tweak with configs to get your favourite table, pretty easy and I've commented basically on everything
