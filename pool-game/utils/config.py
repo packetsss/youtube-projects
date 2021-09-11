@@ -10,7 +10,7 @@ ZOOM_MULTIPLIER = 0.8  # change screen size, can boost fps
 TOTAL_FOUL_TIMES = 25  # amount of fouls before end the game
 WIDTH, HEIGHT = 1120, 620
 
-NUM_BALLS = 5  # number of balls generated on table (16 is a normal game)
+NUM_BALLS = 16  # number of balls generated on table (16 is a normal game)
 TRAINING = True  # training or playing (fast dt)
 DRAW_SCREEN = False  # draw screen (will not affect if using image observation)
 REWARD_BY_STEPS = True  # whether calculate reward based on steps or episodes
