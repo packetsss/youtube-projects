@@ -14,8 +14,11 @@ import numpy as np
 import pymunk as pm
 import pygame as pg
 from gym import spaces
+import matplotlib as mpl
 from gym.utils import seeding
+import matplotlib.pyplot as plt
 import pymunk.pygame_util as pygame_util
+import pymunk.matplotlib_util as matplotlib_util
 
 
 class PoolEnv:
@@ -34,8 +37,9 @@ class PoolEnv:
         self.episodes = 0
         self.total_steps = 0
         self.running = True
-        self.start_fps = time.time()
 
+        self.width = WIDTH * ZOOM_MULTIPLIER
+        self.height = HEIGHT * ZOOM_MULTIPLIER
         self.training = training
         self.num_balls = num_balls
         self.reward_by_steps = reward_by_steps
@@ -87,15 +91,13 @@ class PoolEnv:
 
         # speed of the env
         self.dt = 7
-        self.step_size = 0.2
+        self.step_size = 0.5
         if not TRAINING:
             self.step_size = 0.15
 
         # initialize pygame
         pg.init()
-        self.screen = pg.display.set_mode(
-            (int(WIDTH * ZOOM_MULTIPLIER), int(HEIGHT * ZOOM_MULTIPLIER))
-        )
+        self.screen = pg.display.set_mode((int(self.width), int(self.height)))
         self.clock = pg.time.Clock()
 
         # render the game
@@ -166,10 +168,8 @@ class PoolEnv:
                 ball_body.position = random.choice(HANGING_BALL_LOCATION).tolist()
             else:
                 ball_body.position = random.randint(
-                    RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
-                ), random.randint(
-                    RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
-                )
+                    RAIL_DISTANCE * 2, self.width - RAIL_DISTANCE * 2
+                ), random.randint(RAIL_DISTANCE * 2, self.height - RAIL_DISTANCE * 2)
 
             # if overlap with another ball, choose a different location
             while 1:
@@ -185,9 +185,9 @@ class PoolEnv:
                     ball_body.position = random.choice(HANGING_BALL_LOCATION).tolist()
                 else:
                     ball_body.position = random.randint(
-                        RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
+                        RAIL_DISTANCE * 2, self.width - RAIL_DISTANCE * 2
                     ), random.randint(
-                        RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
+                        RAIL_DISTANCE * 2, self.height - RAIL_DISTANCE * 2
                     )
 
             ball = pm.Circle(ball_body, BALL_RADIUS, offset=(0, 0))
@@ -300,10 +300,8 @@ class PoolEnv:
             return img.reshape(3, IMAGE_HEIGHT, IMAGE_WIDTH)
         else:
             # observation_number: pocketed 0, solid 1, strips 2, 8-ball 3, cue-ball 4
-            width_multiplier = (IMAGE_WIDTH / (WIDTH * ZOOM_MULTIPLIER)) / IMAGE_WIDTH
-            height_multiplier = (
-                IMAGE_HEIGHT / (HEIGHT * ZOOM_MULTIPLIER)
-            ) / IMAGE_HEIGHT
+            width_multiplier = (IMAGE_WIDTH / (self.width)) / IMAGE_WIDTH
+            height_multiplier = (IMAGE_HEIGHT / (self.height)) / IMAGE_HEIGHT
             obs = np.array(
                 [
                     np.array(
@@ -350,10 +348,6 @@ class PoolEnv:
             return np.clip((reward / 500) * 2 - 1, -1, 1)
 
     def step(self, action, *args, **kwargs):
-        # calculate fps
-        self.fps = 1 / (time.time() - self.start_fps + 1e-8)
-        self.start_fps = time.time()
-
         # waiting for all balls to stop
         action = self.process_action(action)
         self.cue_ball.body.activate()
@@ -384,7 +378,7 @@ class PoolEnv:
                 # filter out everything but balls
                 bl = self.space.point_query_nearest(
                     tuple(self.cue_ball.body.position),
-                    1e3,
+                    self.width * 0.8,
                     pm.ShapeFilter(mask=pm.ShapeFilter.ALL_MASKS() ^ 0b10111),
                 )
                 if bl is not None:
@@ -393,7 +387,7 @@ class PoolEnv:
                 # filter out everything but pockets
                 poc = self.space.point_query_nearest(
                     tuple(fcb.body.position),
-                    1e3,
+                    self.width * 0.5,
                     pm.ShapeFilter(mask=pm.ShapeFilter.ALL_MASKS() ^ 0b11101),
                 )
                 if poc is not None:
@@ -471,14 +465,17 @@ class PoolEnv:
             else:
                 self.reward = 0
 
-            if not self.reward_by_steps:
-                pg.display.set_caption(
-                    f"FPS: {self.fps:.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}"
-                )
-            else:
-                pg.display.set_caption(
-                    f"FPS: {self.fps:.0f}   TOT_REWARD: {np.sum(self.episode_reward):.2f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}"
-                )
+            # update caption every 5 episodes
+            if self.episodes == 1 or self.episodes % 5 == 0:
+                self.fps = 1 / ((time.time() - self.starting_time) / self.episode_steps)
+                if not self.reward_by_steps:
+                    pg.display.set_caption(
+                        f"FPS: {self.fps:.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}"
+                    )
+                else:
+                    pg.display.set_caption(
+                        f"FPS: {self.fps:.0f}   TOT_REWARD: {np.sum(self.episode_reward):.2f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}"
+                    )
 
         if not self.training:
             pg.display.set_caption(
@@ -491,8 +488,8 @@ class PoolEnv:
             self.reward = 0
 
         # prepare observation
-        self.process_events()
         if self.draw_screen:
+            self.process_events()
             self.redraw_screen()
 
         self.episode_steps += 1
@@ -505,10 +502,8 @@ class PoolEnv:
 
             pm.Body.update_velocity(self.cue_ball.body, (0, 0), damping=0, dt=1)
             self.cue_ball.body.position = random.randint(
-                RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
-            ), random.randint(
-                RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
-            )
+                RAIL_DISTANCE * 2, self.width - RAIL_DISTANCE * 2
+            ), random.randint(RAIL_DISTANCE * 2, self.height - RAIL_DISTANCE * 2)
             self.cue_ball.body.activate()
 
         return self.process_observation(), self.process_reward(), done, info
@@ -575,13 +570,14 @@ class PoolEnv:
                     continue
                 break"""
             if done:
-                if (
-                    self.pocket_tracking["is_won"]
-                    and not self.pocket_tracking["cue_ball_pocketed"]
-                ):
-                    print("WIN !!")
-                else:
-                    print("LOSE!!")
+                if not self.training:
+                    if (
+                        self.pocket_tracking["is_won"]
+                        and not self.pocket_tracking["cue_ball_pocketed"]
+                    ):
+                        print("WIN !!")
+                    else:
+                        print("LOSE!!")
                 self.reset()
 
     def close(self):
@@ -589,8 +585,18 @@ class PoolEnv:
 
 
 def main():
-    pool = PoolEnv(training=False, draw_screen=True, use_image_observation=False)
+    import pstats
+    import pathlib
+    import cProfile
+
+    pool = PoolEnv(training=True, draw_screen=False, use_image_observation=False)
+
+    # with cProfile.Profile() as pr:
     pool.run()
+
+    # stats = pstats.Stats(pr)
+    # stats.sort_stats(pstats.SortKey.TIME)
+    # stats.dump_stats("profiling.prof")
 
 
 if __name__ == "__main__":
