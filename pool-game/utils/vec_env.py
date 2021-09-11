@@ -5,6 +5,7 @@ import os
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
+
 def make_vec_env(
     n_envs=1,
     seed=None,
@@ -28,7 +29,11 @@ def make_vec_env(
             if seed is not None:
                 env.seed(seed + rank)
                 env.action_space.seed(seed + rank)
-            monitor_path = os.path.join(monitor_dir, str(rank)) if monitor_dir is not None else None
+            monitor_path = (
+                os.path.join(monitor_dir, str(rank))
+                if monitor_dir is not None
+                else None
+            )
             if monitor_path is not None:
                 os.makedirs(monitor_dir, exist_ok=True)
             env = Monitor(env, filename=monitor_path, **monitor_kwargs)
@@ -41,4 +46,10 @@ def make_vec_env(
     if vec_env_cls is None:
         vec_env_cls = DummyVecEnv
 
-    return VecNormalize(vec_env_cls([make_env(i + start_index) for i in range(n_envs)], **vec_env_kwargs), clip_obs=1, clip_reward=1)
+    return VecNormalize(
+        vec_env_cls(
+            [make_env(i + start_index) for i in range(n_envs)], **vec_env_kwargs
+        ),
+        clip_obs=1,
+        clip_reward=1,
+    )

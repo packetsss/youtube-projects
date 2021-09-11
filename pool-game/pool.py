@@ -2,6 +2,7 @@ from utils import *
 
 import os
 import gym
+
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
 os.environ["SDL_VIDEO_WINDOW_POS"] = "50, 200"
 gym.logger.set_level(40)
@@ -19,6 +20,7 @@ import pymunk.pygame_util as pygame_util
 
 class PoolEnv:
     metadata = {"render.modes": ["human", "rgb_array"], "video.frames_per_second": 500}
+
     def __init__(
         self,
         training=TRAINING,
@@ -67,10 +69,16 @@ class PoolEnv:
             )
         else:
             # ball_x, ball_y, ball_type(pocketed, solid, strips, 8-ball, cue-ball) x 16 balls
-            self.table_info = np.concatenate([np.array(RAIL_POLY).flatten(), POCKET_LOCATION.flatten()])
+            self.table_info = np.concatenate(
+                [np.array(RAIL_POLY).flatten(), POCKET_LOCATION.flatten()]
+            )
             self.table_info = self.table_info / self.table_info.max()
-            low = np.concatenate([np.array([0, 0, 0] * self.num_balls), [0] * len(self.table_info)])
-            high = np.concatenate([np.array([1, 1, 1] * self.num_balls), [1] * len(self.table_info)])
+            low = np.concatenate(
+                [np.array([0, 0, 0] * self.num_balls), [0] * len(self.table_info)]
+            )
+            high = np.concatenate(
+                [np.array([1, 1, 1] * self.num_balls), [1] * len(self.table_info)]
+            )
             self.observation_space = spaces.Box(
                 low=low,
                 high=high,
@@ -85,7 +93,9 @@ class PoolEnv:
 
         # initialize pygame
         pg.init()
-        self.screen = pg.display.set_mode((int(WIDTH * ZOOM_MULTIPLIER), int(HEIGHT * ZOOM_MULTIPLIER)))
+        self.screen = pg.display.set_mode(
+            (int(WIDTH * ZOOM_MULTIPLIER), int(HEIGHT * ZOOM_MULTIPLIER))
+        )
         self.clock = pg.time.Clock()
 
         # render the game
@@ -101,7 +111,7 @@ class PoolEnv:
         self.reset()
 
     def get_action_meanings(self):
-        return ['NOOP', 'FIRE', 'RIGHT', 'LEFT', 'RIGHTFIRE', 'LEFTFIRE']
+        return ["NOOP", "FIRE", "RIGHT", "LEFT", "RIGHTFIRE", "LEFTFIRE"]
 
     @property
     def unwrapped(self):
@@ -155,19 +165,30 @@ class PoolEnv:
             if self.num_balls < 2:
                 ball_body.position = random.choice(HANGING_BALL_LOCATION).tolist()
             else:
-                ball_body.position = random.randint(RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2), random.randint(RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2)
+                ball_body.position = random.randint(
+                    RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
+                ), random.randint(
+                    RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
+                )
 
             # if overlap with another ball, choose a different location
             while 1:
                 for pos in positions:
-                    if distance_between_two_points(ball_body.position, pos) < BALL_RADIUS * 2:
+                    if (
+                        distance_between_two_points(ball_body.position, pos)
+                        < BALL_RADIUS * 2
+                    ):
                         break
                 else:
                     break
                 if self.num_balls < 2:
                     ball_body.position = random.choice(HANGING_BALL_LOCATION).tolist()
                 else:
-                    ball_body.position = random.randint(RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2), random.randint(RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2)
+                    ball_body.position = random.randint(
+                        RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
+                    ), random.randint(
+                        RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
+                    )
 
             ball = pm.Circle(ball_body, BALL_RADIUS, offset=(0, 0))
             ball.elasticity = BALL_ELASTICITY
@@ -238,7 +259,10 @@ class PoolEnv:
     def rail_contacted(arbiter, space, data):
         ball, rail = arbiter.shapes
 
-        if ball.number == 0 and data["pocket_tracking"]["cue_ball_first_contact"] is None:
+        if (
+            ball.number == 0
+            and data["pocket_tracking"]["cue_ball_first_contact"] is None
+        ):
             data["pocket_tracking"]["cue_ball_first_contact"] = 3
 
         return True
@@ -252,7 +276,11 @@ class PoolEnv:
 
     def process_events(self):
         for event in pg.event.get():
-            if event.type == pg.QUIT or event.type == pg.KEYDOWN and event.key == pg.K_q:
+            if (
+                event.type == pg.QUIT
+                or event.type == pg.KEYDOWN
+                and event.key == pg.K_q
+            ):
                 self.running = False
 
     def process_action(self, action):
@@ -265,28 +293,48 @@ class PoolEnv:
             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
             img = cv2.rotate(img, cv2.cv2.ROTATE_90_COUNTERCLOCKWISE)
             img = cv2.flip(img, 0)
-            
-            #cv2.imshow("", cv2.resize(img, (300, 300)))
-            #if cv2.waitKey(1) == ord("q"):
+
+            # cv2.imshow("", cv2.resize(img, (300, 300)))
+            # if cv2.waitKey(1) == ord("q"):
             #    os._exit(0)
             return img.reshape(3, IMAGE_HEIGHT, IMAGE_WIDTH)
         else:
             # observation_number: pocketed 0, solid 1, strips 2, 8-ball 3, cue-ball 4
             width_multiplier = (IMAGE_WIDTH / (WIDTH * ZOOM_MULTIPLIER)) / IMAGE_WIDTH
-            height_multiplier = (IMAGE_HEIGHT / (HEIGHT * ZOOM_MULTIPLIER)) / IMAGE_HEIGHT
-            obs = np.array([
-                np.array([x.body.position[0] * width_multiplier,
-                          x.body.position[1] * height_multiplier,
-                          x.observation_number / 4])
-                for x in self.balls])
+            height_multiplier = (
+                IMAGE_HEIGHT / (HEIGHT * ZOOM_MULTIPLIER)
+            ) / IMAGE_HEIGHT
+            obs = np.array(
+                [
+                    np.array(
+                        [
+                            x.body.position[0] * width_multiplier,
+                            x.body.position[1] * height_multiplier,
+                            x.observation_number / 4,
+                        ]
+                    )
+                    for x in self.balls
+                ]
+            )
 
             balls_to_fill = self.num_balls - len(self.balls)
             if len(self.balls) == 0:
                 # if no balls on table
-                obs = np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0).reshape(balls_to_fill, 3).flatten()
+                obs = (
+                    np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0)
+                    .reshape(balls_to_fill, 3)
+                    .flatten()
+                )
             if balls_to_fill > 0:
                 # if some balls are pocketed
-                obs = np.vstack((obs, np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0).reshape(balls_to_fill, 3))).flatten()
+                obs = np.vstack(
+                    (
+                        obs,
+                        np.repeat(np.array([0, 0, 0]), balls_to_fill, axis=0).reshape(
+                            balls_to_fill, 3
+                        ),
+                    )
+                ).flatten()
             else:
                 obs = obs.flatten()
             obs = np.concatenate([obs, self.table_info])
@@ -334,15 +382,22 @@ class PoolEnv:
             fcb = self.pocket_tracking["first_contacted_ball"]
             if fcb is None:
                 # filter out everything but balls
-                bl = self.space.point_query_nearest(tuple(self.cue_ball.body.position), 1e3, pm.ShapeFilter(mask=pm.ShapeFilter.ALL_MASKS() ^ 0b10111))
+                bl = self.space.point_query_nearest(
+                    tuple(self.cue_ball.body.position),
+                    1e3,
+                    pm.ShapeFilter(mask=pm.ShapeFilter.ALL_MASKS() ^ 0b10111),
+                )
                 if bl is not None:
                     closest_ball_dist = min(bl.distance, closest_ball_dist)
             elif 1 <= fcb.number <= 7:
                 # filter out everything but pockets
-                poc = self.space.point_query_nearest(tuple(fcb.body.position), 1e3, pm.ShapeFilter(mask=pm.ShapeFilter.ALL_MASKS() ^ 0b11101))
+                poc = self.space.point_query_nearest(
+                    tuple(fcb.body.position),
+                    1e3,
+                    pm.ShapeFilter(mask=pm.ShapeFilter.ALL_MASKS() ^ 0b11101),
+                )
                 if poc is not None:
-                    closest_pocket_dist = min(
-                        poc.distance, closest_pocket_dist)
+                    closest_pocket_dist = min(poc.distance, closest_pocket_dist)
 
             # step through
             if not self.training:
@@ -399,10 +454,15 @@ class PoolEnv:
             self.pocket_tracking["is_won"] = True
 
         # check endgame condition
-        if self.pocket_tracking["black_ball_pocketed"] or self.score_tracking["total_foul"] > self.total_foul_times / (self.score_tracking["pot_count"] * 0.2 + 1):
+        if self.pocket_tracking["black_ball_pocketed"] or self.score_tracking[
+            "total_foul"
+        ] > self.total_foul_times / (self.score_tracking["pot_count"] * 0.2 + 1):
             self.episodes += 1
             done = True
-            if self.pocket_tracking["is_won"] and not self.pocket_tracking["cue_ball_pocketed"]:
+            if (
+                self.pocket_tracking["is_won"]
+                and not self.pocket_tracking["cue_ball_pocketed"]
+            ):
                 if self.reward_by_steps:
                     self.reward = 50
                     self.episode_reward.append(self.process_reward())
@@ -413,14 +473,17 @@ class PoolEnv:
 
             if not self.reward_by_steps:
                 pg.display.set_caption(
-                    f"FPS: {self.fps:.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}")
+                    f"FPS: {self.fps:.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}"
+                )
             else:
                 pg.display.set_caption(
-                    f"FPS: {self.fps:.0f}   TOT_REWARD: {np.sum(self.episode_reward):.2f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}")
+                    f"FPS: {self.fps:.0f}   TOT_REWARD: {np.sum(self.episode_reward):.2f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int)}"
+                )
 
         if not self.training:
             pg.display.set_caption(
-                f"FPS: {self.clock.get_fps():.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int).tolist()}")
+                f"FPS: {self.clock.get_fps():.0f}   REWARD: {self.process_reward():.3f}   POTTED_BALLS: {self.pocket_tracking['total_potted_balls']}   STEPS: {self.episode_steps}   TOTAL_STEPS: {self.total_steps}   EPISODES: {self.episodes}   ACTION: {np.array(action, dtype=int).tolist()}"
+            )
 
         # end the game if too many steps
         if self.episode_steps > 100:
@@ -441,7 +504,11 @@ class PoolEnv:
             self.balls.append(self.cue_ball)
 
             pm.Body.update_velocity(self.cue_ball.body, (0, 0), damping=0, dt=1)
-            self.cue_ball.body.position = random.randint(RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2), random.randint(RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2)
+            self.cue_ball.body.position = random.randint(
+                RAIL_DISTANCE * 2, WIDTH * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
+            ), random.randint(
+                RAIL_DISTANCE * 2, HEIGHT * ZOOM_MULTIPLIER - RAIL_DISTANCE * 2
+            )
             self.cue_ball.body.activate()
 
         return self.process_observation(), self.process_reward(), done, info
@@ -466,7 +533,7 @@ class PoolEnv:
             "foul_count": 0,
             "touch_count": 0,
             "pot_count": 0,
-            "total_foul": 0
+            "total_foul": 0,
         }
         self.pocket_tracking = {
             "cue_ball_pocketed": False,
@@ -508,7 +575,10 @@ class PoolEnv:
                     continue
                 break"""
             if done:
-                if self.pocket_tracking["is_won"] and not self.pocket_tracking["cue_ball_pocketed"]:
+                if (
+                    self.pocket_tracking["is_won"]
+                    and not self.pocket_tracking["cue_ball_pocketed"]
+                ):
                     print("WIN !!")
                 else:
                     print("LOSE!!")
@@ -523,5 +593,5 @@ def main():
     pool.run()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
