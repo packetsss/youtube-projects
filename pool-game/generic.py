@@ -4,8 +4,6 @@
 
 from pool import PoolEnv
 
-import asyncio
-import threading
 import numpy as np
 
 
@@ -76,19 +74,29 @@ if __name__ == "__main__":
     iterations = 800
     pool = PoolEnv(training=True)
 
-    while 1:
-        pool.training = True
-        pool.draw_screen = False
+    import pstats
+    import pathlib
+    import cProfile
 
-        attrs = pool.get_attrs()
-        agent = GA(attrs, iterations=iterations)
-        player, attrs = agent.train()
-        pool.apply_attrs(attrs)
+    with cProfile.Profile() as pr:
+        while 1:
+            pool.training = True
+            pool.draw_screen = False
 
-        pool.training = False
-        pool.draw_screen = True
+            attrs = pool.get_attrs()
+            agent = GA(attrs, iterations=iterations)
+            player, attrs = agent.train()
+            pool.apply_attrs(attrs)
 
-        done = pool.step(player.v)[2]
+            pool.training = False
+            pool.draw_screen = True
 
-        if done:
-            pool.reset()
+            done = pool.step(player.v)[2]
+
+            if done:
+                break
+                pool.reset()
+    
+    stats = pstats.Stats(pr)
+    stats.sort_stats(pstats.SortKey.TIME)
+    stats.dump_stats("profiling.prof")

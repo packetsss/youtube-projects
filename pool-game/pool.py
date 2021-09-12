@@ -19,12 +19,9 @@ import numpy as np
 import pymunk as pm
 import pygame as pg
 from gym import spaces
-import matplotlib as mpl
-from copy import deepcopy
 from gym.utils import seeding
-import matplotlib.pyplot as plt
+from copy import copy
 import pymunk.pygame_util as pygame_util
-import pymunk.matplotlib_util as matplotlib_util
 
 
 class PoolEnv:
@@ -588,21 +585,31 @@ class PoolEnv:
         return self.process_observation()
 
     def get_attrs(self):
+        def get_balls(x):
+            return {
+                "position": x.body.position, 
+                "number": x.number, 
+                "color": x.color, 
+                "filter": x.filter, 
+                "collision_type": x.collision_type,
+                "observation_number": x.observation_number,
+            }
+
         return {
-            "old_balls": deepcopy(self.balls),
-            "reward": deepcopy(self.reward),
-            "episodes": deepcopy(self.episodes),
-            "episode_reward": deepcopy(self.episode_reward),
-            "potted_balls": deepcopy(self.potted_balls),
-            "episode_steps": deepcopy(self.episode_steps),
-            "total_steps": deepcopy(self.total_steps),
-            "starting_time": deepcopy(self.starting_time),
-            "score_tracking": deepcopy(self.score_tracking),
-            "pocket_tracking": deepcopy(self.pocket_tracking),
+            "balls_attrs": [get_balls(x) for x in self.balls],
+            "reward": copy(self.reward),
+            "episodes": copy(self.episodes),
+            "episode_reward": copy(self.episode_reward),
+            "potted_balls": copy(self.potted_balls),
+            "episode_steps": copy(self.episode_steps),
+            "total_steps": copy(self.total_steps),
+            "starting_time": copy(self.starting_time),
+            "score_tracking": copy(self.score_tracking),
+            "pocket_tracking": copy(self.pocket_tracking),
         }
 
     def apply_attrs(self, attrs):
-        old_balls = attrs["old_balls"]
+        balls_attrs = attrs["balls_attrs"]
         self.reward = attrs["reward"]
         self.episodes = attrs["episodes"]
         self.episode_reward = attrs["episode_reward"]
@@ -614,18 +621,26 @@ class PoolEnv:
         self.pocket_tracking = attrs["pocket_tracking"]
         del attrs
 
-        for i in range(len(old_balls)):
+        balls = []
+        for i in range(len(balls_attrs)):
             if i < len(self.balls):
                 self.space.remove(self.balls[i].body, self.balls[i])
-            if old_balls[i].body.space is not None:
-                old_balls[i].body.space.remove(old_balls[i].body, old_balls[i])
-
-            self.space.add(old_balls[i].body, old_balls[i])
-            if old_balls[i].number == 0:
-                self.cue_ball = old_balls[i]
-        self.balls = old_balls
-
-        
+            intertia = pm.moment_for_circle(BALL_MASS, 0, BALL_RADIUS, offset=(0, 0))
+            ball_body = pm.Body(BALL_MASS, intertia)
+            ball_body.position = balls_attrs[i]["position"]
+            ball = pm.Circle(ball_body, BALL_RADIUS, offset=(0, 0))
+            ball.elasticity = BALL_ELASTICITY
+            ball.friction = BALL_FRICTION
+            ball.collision_type = balls_attrs[i]["collision_type"]
+            ball.number = balls_attrs[i]["number"]
+            ball.color = balls_attrs[i]["color"]
+            ball.observation_number = balls_attrs[i]["observation_number"]
+            ball.filter = balls_attrs[i]["filter"]
+            if ball.number == 0:
+                self.cue_ball = ball
+            self.space.add(ball_body, ball)
+            balls.append(ball)
+        self.balls = balls
 
         self.ball_collision_handler.data["cue_ball"] = self.cue_ball
         self.ball_collision_handler.data["pocket_tracking"] = self.pocket_tracking
