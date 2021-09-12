@@ -1,7 +1,7 @@
 # pool-game
 ### Check out my [YouTube tutorial](https://www.youtube.com/watch?v=a9yDqKloXf4&list=PLe2NghaCZ6ovKhmCeIUYCykno4-el_Efj)!
 
-<img src="https://cdn.discordapp.com/attachments/763819251249184789/885387030333358101/Animation.gif" width=450>       <img src="https://cdn.discordapp.com/attachments/763819251249184789/885675106087620639/Animation.gif" width=450>
+<img src="https://cdn.discordapp.com/attachments/763819251249184789/885387030333358101/Animation.gif" width=450>       <img src="https://cdn.discordapp.com/attachments/763819251249184789/886406488992657428/Animation2.gif" width=450>
 
 
 (FPS in the gif is splited by 10 instances, so it should be around 110)
