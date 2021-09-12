@@ -12,9 +12,9 @@ WIDTH, HEIGHT = 1120, 620
 
 NUM_BALLS = 16  # number of balls generated on table (16 is a normal game)
 TRAINING = True  # training or playing (fast dt)
-DRAW_SCREEN = False  # draw screen (will not affect if using image observation)
+DRAW_SCREEN = False  # draw screen (will not affect if using image observation or not training)
 REWARD_BY_STEPS = True  # whether calculate reward based on steps or episodes
-USE_IMAGE_OBSERVATION = False  # whether use image obs space or vector obs space
+OBSERVATION_TYPE = "none" # choose between ["none, "vector", "image"]
 VELOCITY_LIMIT = int(420 * ZOOM_MULTIPLIER)  # max velocity of cue ball
 
 # dimension of image observation if used
