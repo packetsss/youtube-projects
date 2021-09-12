@@ -54,43 +54,40 @@ class GA:
         self.best_player = Player(self.env)
 
     def train(self):
-        iters = 0
-        
-        while 1:
+        for i in range(self.iterations):
             player = self.best_player.clone()
             player.mutate()
 
             attrs = player.env.copy_attrs()
             player.step()
-            score_threshold = 1 if player.env.score_tracking["pot_count"] == 7 else 0.6
+            score_threshold = 1 if player.env.score_tracking["pot_count"] == 7 else 0.62
             player.revert_env(attrs)
 
             if self.best_player.reward < player.reward:
                 self.best_player = player
+            if self.best_player.reward > score_threshold:
+                break
 
-            if iters == self.iterations or self.best_player.reward > score_threshold:
-                return self.best_player, attrs
-            iters += 1
+        return self.best_player, attrs
 
+if __name__ == "__main__":
+    population = 1
+    iterations = 500
+    pool = PoolEnv(training=True)
 
-population = 1
-iterations = 500
+    while 1:
+        pool.training = True
+        pool.draw_screen = False
 
-pool = PoolEnv(training=True)
+        ga = GA(env=pool, population=population, iterations=iterations)
+        player, attrs = ga.train()
+        pool.apply_attrs(attrs)
 
-while 1:
-    pool.training = True
-    pool.draw_screen = False
-    attrs = pool.copy_attrs()
-    ga = GA(env=pool, population=population, iterations=iterations)
-    player, attrs = ga.train()
-    pool.apply_attrs(attrs)
+        pool.training = False
+        pool.draw_screen = True
+        pool.dt = 20
 
-    pool.training = False
-    pool.draw_screen = True
-    pool.dt = 20
+        done = pool.step(player.v)[2]
 
-    done = pool.step(player.v)[2]
-
-    if done:
-        pool.reset()
+        if done:
+            pool.reset()

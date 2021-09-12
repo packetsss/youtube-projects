@@ -594,6 +594,7 @@ class PoolEnv:
         return {
             "old_balls": deepcopy(self.balls),
             "reward": deepcopy(self.reward),
+            "episodes": deepcopy(self.episodes),
             "episode_reward": deepcopy(self.episode_reward),
             "potted_balls": deepcopy(self.potted_balls),
             "episode_steps": deepcopy(self.episode_steps),
@@ -606,6 +607,7 @@ class PoolEnv:
     def apply_attrs(self, attrs):
         old_balls = attrs["old_balls"]
         self.reward = attrs["reward"]
+        self.episodes = attrs["episodes"]
         self.episode_reward = attrs["episode_reward"]
         self.potted_balls = attrs["potted_balls"]
         self.episode_steps = attrs["episode_steps"]
