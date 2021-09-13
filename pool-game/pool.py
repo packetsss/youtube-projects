@@ -129,7 +129,6 @@ class PoolEnv:
         --> 0b      0         0        0         0      0
         if change 0 to 1, means filter out the 1's
         e.g. 0b00111 means only account for unassigned and solids
-
         this is very complex and you won't understand hahaha
         """
         static_body = self.space.static_body
