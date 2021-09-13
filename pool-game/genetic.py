@@ -20,13 +20,11 @@ class Player:
         self.reward = self.env.step(self.v)[1]
 
     def mutate(self, mu=1):
-        for i in range(len(self.v)):
-            rand = np.random.uniform(0, 1)
-
-            if rand < mu / 3:
-                self.v = np.random.uniform(self.low, self.high, 2)
-
-            elif rand < mu:
+        rand = np.random.uniform(0, 1)
+        if rand < mu / 5:
+            self.v = np.random.uniform(self.low, self.high, 2)
+        elif rand < mu:
+            for i in range(len(self.v)):
                 self.v[i] = min(
                     max(
                         self.v[i] + self.v[i] * np.random.normal(loc=0, scale=0.3),
@@ -34,13 +32,13 @@ class Player:
                     ),
                     self.high,
                 )
-
-
 class GA:
     def __init__(self, attrs, iterations):
         self.attrs = attrs
         self.iterations = iterations
         self.best_player = Player(self.create_env())
+        self.players = np.array([self.best_player])
+        self.player_rewards = np.array([(self.best_player.reward + 1.001) ** 3])
 
     def create_env(self):
         env = PoolEnv(training=True, draw_screen=False)
@@ -49,13 +47,25 @@ class GA:
 
     def train(self):
         for _ in range(self.iterations):
-            player = self.best_player.clone()
+            
+            if self.best_player.env.score_tracking["pot_count"] > 6:
+                player = self.best_player.clone()
+            else:
+                player = np.random.choice(
+                    a=self.players, p=self.player_rewards / self.player_rewards.sum()
+                ).clone()
+
             player.mutate()
 
             attrs = player.env.get_attrs()
             player.step()
             score_threshold = 1 if player.env.score_tracking["pot_count"] == 7 else 0.62
             player.env.apply_attrs(attrs)
+
+            self.players = np.append(self.players, player)
+            self.player_rewards = np.append(
+                self.player_rewards, (player.reward + 2) ** 3
+            )
 
             if self.best_player.reward < player.reward:
                 self.best_player = player

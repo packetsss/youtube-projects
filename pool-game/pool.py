@@ -54,7 +54,6 @@ class PoolEnv:
         self.space = pm.Space()
         self.space.gravity = (0, 0)
         self.space.damping = 0.83
-        self.space.iterations = 100
         self.space.collision_slop = 0.5
         self.space.idle_speed_threshold = 5
         self.space.sleep_time_threshold = 1e-8
@@ -90,7 +89,7 @@ class PoolEnv:
             )
 
         # speed of the env
-        self.dt = 20
+        self.dt = 24
         self.step_size = 0.45
         if not self.training:
             self.dt = 7
@@ -588,10 +587,10 @@ class PoolEnv:
     def get_attrs(self):
         def get_balls(x):
             return {
-                "position": x.body.position, 
-                "number": x.number, 
-                "color": x.color, 
-                "filter": x.filter, 
+                "position": x.body.position,
+                "number": x.number,
+                "color": x.color,
+                "filter": x.filter,
                 "collision_type": x.collision_type,
                 "observation_number": x.observation_number,
             }
