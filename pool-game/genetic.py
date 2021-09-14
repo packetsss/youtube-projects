@@ -1,6 +1,11 @@
+import sys
 from pool import PoolEnv
 
+from concurrent.futures import ProcessPoolExecutor
 import numpy as np
+
+import multiprocessing
+import itertools
 
 
 class Player:
@@ -47,19 +52,19 @@ class GA:
 
     def train(self):
         for _ in range(self.iterations):
-            
-            if self.best_player.env.score_tracking["pot_count"] > 6:
-                player = self.best_player.clone()
-            else:
-                player = np.random.choice(
-                    a=self.players, p=self.player_rewards / self.player_rewards.sum()
-                ).clone()
+            #if self.best_player.env.score_tracking["pot_count"] > 6:
+            #    player = self.best_player.clone()
+            #else:
+            #    player = np.random.choice(
+            #        a=self.players, p=self.player_rewards / self.player_rewards.sum()
+            #    ).clone()
+            player = self.best_player.clone()
 
             player.mutate()
 
             attrs = player.env.get_attrs()
             player.step()
-            score_threshold = 1 if player.env.score_tracking["pot_count"] == 7 else 0.62
+            score_threshold = 1 if player.env.score_tracking["pot_count"] == 7 else 0.65
             player.env.apply_attrs(attrs)
 
             self.players = np.append(self.players, player)
@@ -74,24 +79,31 @@ class GA:
 
         return self.best_player, attrs
 
+def get_player(attrs, iterations):
+    agent = GA(attrs, iterations=iterations)
+    player, attrs = agent.train()
+    return list(player.v), player.reward, attrs
+
 
 if __name__ == "__main__":
-    iterations = 900
-    pool = PoolEnv(training=True)
-
+    pool = PoolEnv(training=False)
+    
     while 1:
-        pool.training = True
-        pool.draw_screen = False
-
+        iterations = 120 + pool.score_tracking["pot_count"] * 3
         attrs = pool.get_attrs()
-        agent = GA(attrs, iterations=iterations)
-        player, attrs = agent.train()
+        #agent = GA(attrs, iterations=iterations)
+        #best_player, attrs = agent.train()
+        with multiprocessing.Pool() as pooling:
+            result = list(pooling.starmap(get_player, itertools.repeat((attrs, iterations), 11), chunksize=1))
+            best_player, reward, attrs = max(result, key=lambda x: x[1])
+            print('reward: ', reward)
+
         pool.apply_attrs(attrs)
 
-        pool.training = False
-        pool.draw_screen = True
-
-        done = pool.step(player.v)[2]
+        try:
+            done = pool.step(best_player)[2]
+        except KeyboardInterrupt:
+            sys.exit("Inter")
 
         if done:
             pool.reset()
