@@ -39,86 +39,111 @@ class Player:
                 )
 
 
-class GA:
-    def __init__(self, attrs, iterations):
+class GeneticAlgorithm:
+    def __init__(self, attrs, iterations, training_type="mlp"):
+        self.i = 0
         self.attrs = attrs
         self.iterations = iterations
+        self.max_iterations = iterations * 5
+        self.training_type = training_type
         self.best_player = Player(self.create_env())
-        self.players = np.array([self.best_player])
-        self.player_rewards = np.array([(self.best_player.reward + 1.001) ** 3])
+        if self.training_type == "single":
+            self.players = np.array([self.best_player])
+            self.player_rewards = np.array([(self.best_player.reward + 1.001) ** 3])
 
     def create_env(self):
         env = PoolEnv(training=True, draw_screen=False)
         env.apply_attrs(self.attrs)
         return env
 
-    def train(self):
+    def train(self, v=None, score_threshold=0.65):
+        if v is not None:
+            self.best_player.v = v
         for _ in range(self.iterations):
-            # if self.best_player.env.score_tracking["pot_count"] > 6:
-            #    player = self.best_player.clone()
-            # else:
-            #    player = np.random.choice(
-            #        a=self.players, p=self.player_rewards / self.player_rewards.sum()
-            #    ).clone()
-            player = self.best_player.clone()
+            if self.training_type == "single":
+                if self.best_player.env.score_tracking["pot_count"] > 6:
+                    player = self.best_player.clone()
+                else:
+                    player = np.random.choice(
+                        a=self.players, p=self.player_rewards / self.player_rewards.sum()
+                    ).clone()
+            elif self.training_type == "mlp":
+                player = self.best_player.clone()
 
             player.mutate()
-
             attrs = player.env.get_attrs()
             player.step()
-            score_threshold = 1 if player.env.score_tracking["pot_count"] == 7 else 0.65
             player.env.apply_attrs(attrs)
 
-            self.players = np.append(self.players, player)
-            self.player_rewards = np.append(
-                self.player_rewards, (player.reward + 2) ** 3
-            )
+            if self.training_type == "single":
+                self.players = np.append(self.players, player)
+                self.player_rewards = np.append(
+                    self.player_rewards, (player.reward + 2) ** 3
+                )
 
             if self.best_player.reward < player.reward:
                 self.best_player = player
             if self.best_player.reward > score_threshold:
                 break
-
+            self.i += 1
+        
+        #if self.best_player.reward < 0.5 and self.i < self.max_iterations:
+        #    self.train(score_threshold=0.5)
+            
         return self.best_player, attrs
 
+class Trainer:
+    def __init__(self, iterations, batch=10):
+        self.iterations = iterations
+        self.batch = batch
+    
+    def train(self, attrs):
+        agent = GeneticAlgorithm(attrs, self.iterations, training_type="single")
+        player, attrs = agent.train()
+        return player.v, attrs
+        
+    def mlp_train(self, attrs):
+        results = []
+        self.itr = 0
+        self.best_v = None
+        with multiprocessing.Pool() as pooling:
+            for i in range(self.batch):
+                for result in pooling.imap_unordered(
+                    self.mlp_get_player, itertools.repeat((attrs, self.iterations // self.batch), 10), chunksize=1
+                ):  
+                    if result[1] > 0.65 or (self.itr > self.iterations / 2 and result[1] > 0.5):
+                        self.best_v, reward, itr, attrs = result
+                        self.itr += itr
+                        self.log_results(reward)
+                        return self.best_v, attrs
+                    results.append(result)
+                else:
+                    self.best_v, reward, itr, attrs = max(results, key=lambda x: x[1])
+                    self.itr += itr
+        self.log_results(reward)
+        return self.best_v, attrs
 
-def get_player(x):
-    attrs, iterations = x
-    agent = GA(attrs, iterations=iterations)
-    player, attrs = agent.train()
-    print("finished")
-    return list(player.v), player.reward, attrs
+    def log_results(self, reward):
+        print(f"{self.itr} iterations, best reward {reward:.3f}")
+        
+    def mlp_get_player(self, x):
+        attrs, iterations = x
+        agent = GeneticAlgorithm(attrs, iterations=iterations, training_type="mlp")
+        player, attrs = agent.train(self.best_v)
+        return list(player.v), player.reward, agent.i, attrs
 
 
 if __name__ == "__main__":
+    iterations = 150
     pool = PoolEnv(training=False)
+    trainer = Trainer(iterations)
 
     while 1:
-        iterations = 120
         attrs = pool.get_attrs()
-        # agent = GA(attrs, iterations=iterations)
-        # best_player, attrs = agent.train()
-        with multiprocessing.Pool() as pooling:
-            results = []
-            for result in pooling.imap_unordered(
-                get_player, itertools.repeat((attrs, iterations), 10), chunksize=1
-            ):
-                if result[1] > 0.65:
-                    print(111)
-                    best_player, reward, attrs = result
-                    break
-                results.append(result)
-            else:
-                best_player, reward, attrs = max(results, key=lambda x: x[1])
-
-            print("reward: ", reward)
+        best_player, attrs = trainer.mlp_train(attrs)
 
         pool.apply_attrs(attrs)
-
-        try:
-            done = pool.step(best_player)[2]
-        except KeyboardInterrupt:
-            sys.exit("Inter")
+        done = pool.step(best_player)[2]
 
         if done:
             pool.reset()

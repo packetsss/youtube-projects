@@ -241,7 +241,10 @@ class PoolEnv:
         elif ball.number == 8:
             # check for solids winning
             data["pocket_tracking"]["black_ball_pocketed"] = True
-            if any([b.number >= 1 and b.number <= 7 for b in data["balls"]]):
+            if (
+                any([b.number >= 1 and b.number <= 7 for b in data["balls"]])
+                or data["pocket_tracking"]["first_contacted_ball"].number != 8
+            ):
                 data["pocket_tracking"]["is_won"] = False
             else:
                 data["pocket_tracking"]["is_won"] = True
@@ -429,7 +432,7 @@ class PoolEnv:
 
         # if cue ball touch the rail first, subtract the reward
         self.reward -= 2 * self.pocket_tracking["rail_collision_count"]
-        
+
         fcb = self.pocket_tracking["first_contacted_ball"]
         if (
             fcb is not None
@@ -473,7 +476,7 @@ class PoolEnv:
         if self.reward_by_steps:
             self.episode_reward.append(self.process_reward())
 
-        # only cue ball left
+        # only cue ball left when use less balls
         if self.num_balls < 9 and len(self.balls) < 2 and self.cue_ball in self.balls:
             self.pocket_tracking["black_ball_pocketed"] = True
             self.pocket_tracking["is_won"] = True
@@ -487,7 +490,6 @@ class PoolEnv:
             if (
                 self.pocket_tracking["is_won"]
                 and not self.pocket_tracking["cue_ball_pocketed"]
-                and self.pocket_tracking["first_contacted_ball"].number == 8
             ):
                 if self.observation_type != "none":
                     if self.reward_by_steps:
@@ -563,6 +565,7 @@ class PoolEnv:
             "cue_ball_pocketed": False,
             "black_ball_pocketed": False,
             "is_won": None,
+            "cue_ball_first_contact": None,  # 1 --> ball, 2 --> pocket, 3 --> rail
             "first_contacted_ball": None,
             "total_potted_balls": 0,
             "fcb_collision_count": 0,
