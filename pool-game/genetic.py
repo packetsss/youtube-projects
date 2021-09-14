@@ -37,6 +37,8 @@ class Player:
                     ),
                     self.high,
                 )
+
+
 class GA:
     def __init__(self, attrs, iterations):
         self.attrs = attrs
@@ -52,9 +54,9 @@ class GA:
 
     def train(self):
         for _ in range(self.iterations):
-            #if self.best_player.env.score_tracking["pot_count"] > 6:
+            # if self.best_player.env.score_tracking["pot_count"] > 6:
             #    player = self.best_player.clone()
-            #else:
+            # else:
             #    player = np.random.choice(
             #        a=self.players, p=self.player_rewards / self.player_rewards.sum()
             #    ).clone()
@@ -79,24 +81,37 @@ class GA:
 
         return self.best_player, attrs
 
-def get_player(attrs, iterations):
+
+def get_player(x):
+    attrs, iterations = x
     agent = GA(attrs, iterations=iterations)
     player, attrs = agent.train()
+    print("finished")
     return list(player.v), player.reward, attrs
 
 
 if __name__ == "__main__":
     pool = PoolEnv(training=False)
-    
+
     while 1:
-        iterations = 120 + pool.score_tracking["pot_count"] * 3
+        iterations = 120
         attrs = pool.get_attrs()
-        #agent = GA(attrs, iterations=iterations)
-        #best_player, attrs = agent.train()
+        # agent = GA(attrs, iterations=iterations)
+        # best_player, attrs = agent.train()
         with multiprocessing.Pool() as pooling:
-            result = list(pooling.starmap(get_player, itertools.repeat((attrs, iterations), 11), chunksize=1))
-            best_player, reward, attrs = max(result, key=lambda x: x[1])
-            print('reward: ', reward)
+            results = []
+            for result in pooling.imap_unordered(
+                get_player, itertools.repeat((attrs, iterations), 10), chunksize=1
+            ):
+                if result[1] > 0.65:
+                    print(111)
+                    best_player, reward, attrs = result
+                    break
+                results.append(result)
+            else:
+                best_player, reward, attrs = max(results, key=lambda x: x[1])
+
+            print("reward: ", reward)
 
         pool.apply_attrs(attrs)
 
