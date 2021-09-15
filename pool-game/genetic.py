@@ -1,11 +1,8 @@
-import sys
 from pool import PoolEnv
 
-from concurrent.futures import ProcessPoolExecutor
-import numpy as np
-
-import multiprocessing
 import itertools
+import numpy as np
+import multiprocessing
 
 
 class Player:
@@ -65,7 +62,8 @@ class GeneticAlgorithm:
                     player = self.best_player.clone()
                 else:
                     player = np.random.choice(
-                        a=self.players, p=self.player_rewards / self.player_rewards.sum()
+                        a=self.players,
+                        p=self.player_rewards / self.player_rewards.sum(),
                     ).clone()
             elif self.training_type == "mlp":
                 player = self.best_player.clone()
@@ -86,22 +84,23 @@ class GeneticAlgorithm:
             if self.best_player.reward > score_threshold:
                 break
             self.i += 1
-        
-        #if self.best_player.reward < 0.5 and self.i < self.max_iterations:
+
+        # if self.best_player.reward < 0.5 and self.i < self.max_iterations:
         #    self.train(score_threshold=0.5)
-            
+
         return self.best_player, attrs
+
 
 class Trainer:
     def __init__(self, iterations, batch=10):
         self.iterations = iterations
         self.batch = batch
-    
+
     def train(self, attrs):
         agent = GeneticAlgorithm(attrs, self.iterations, training_type="single")
         player, attrs = agent.train()
         return player.v, attrs
-        
+
     def mlp_train(self, attrs):
         results = []
         self.itr = 0
@@ -109,9 +108,13 @@ class Trainer:
         with multiprocessing.Pool() as pooling:
             for i in range(self.batch):
                 for result in pooling.imap_unordered(
-                    self.mlp_get_player, itertools.repeat((attrs, self.iterations // self.batch), 10), chunksize=1
-                ):  
-                    if result[1] > 0.65 or (self.itr > self.iterations / 2 and result[1] > 0.5):
+                    self.mlp_get_player,
+                    itertools.repeat((attrs, self.iterations // self.batch), 10),
+                    chunksize=1,
+                ):
+                    if result[1] > 0.65 or (
+                        self.itr > self.iterations / 2 and result[1] > 0.5
+                    ):
                         self.best_v, reward, itr, attrs = result
                         self.itr += itr
                         self.log_results(reward)
@@ -125,7 +128,7 @@ class Trainer:
 
     def log_results(self, reward):
         print(f"{self.itr} iterations, best reward {reward:.3f}")
-        
+
     def mlp_get_player(self, x):
         attrs, iterations = x
         agent = GeneticAlgorithm(attrs, iterations=iterations, training_type="mlp")
