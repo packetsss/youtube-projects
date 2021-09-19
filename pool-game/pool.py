@@ -119,6 +119,10 @@ class PoolEnv:
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
+    def render(self):
+        self.process_events()
+        self.redraw_screen()
+
     def add_table(self):
         """
         filter: black ball, solids, cue-ball, pocket, rail
