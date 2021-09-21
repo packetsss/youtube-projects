@@ -6,6 +6,18 @@
 
 (FPS in the gif is splited by 10 instances, so it should be around 110)
 
+## Quick Start
+```
+# install packages
+pip install -r requirements.txt
+
+# run pool simulator
+python pool.py
+
+# run genetic algorithm solver
+python genetic.py
+```
+
 ## Advantages of using this environment
 - Fast: About 250 fps using vector observation, 120 fps using image observation
 - Accurate: Every collision is handeled correctly and the table size is very precise
